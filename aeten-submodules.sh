@@ -60,15 +60,28 @@ function git-submodule-update-shallow() {
 	done
 }
 
+function install() {
+	install_directory=${1?${FUNCNAME} Must take an installation directory as parameter}
+	echo -n Want you really install Git commands into \"${install_directory}'" ? [y|N] '
+	read -e
+	case $(echo ${REPLY} | tr '[A-Z]' '[a-z]') in
+		y|yes) ;;
+		*) exit 0;;
+	esac
+
+	for command in $(awk '/^function\sgit/ {sub(/\s*\(\)$/, "", $2);print $2}' aeten-submodules.sh); do
+		echo Install Git command ${command}
+		ln -fs $(readlink -f ${0}) ${install_directory}/${command}
+	done
+}
+
 if [ -L ${0} ]; then
 	$(basename ${0}) ${*}
 else
-	if [ ${#} -ne 1 ] || [ ! -d ${1} ]; then
+	if [ ${#} -ne 1 ] || [ ! -d "${1}" ]; then
 		echo Usage: ${0} install-directory >&2
-		exit 4
+		exit 1
 	fi
-	for command in $(awk '/^function\sgit/ {sub(/\s*\(\)$/, "", $2);print $2}' aeten-submodules.sh); do
-		echo Install Git command ${command}
-		ln -s $(readlink -f ${0}) ${1}/${command}
-	done
+	install ${*}
 fi
+exit 0
