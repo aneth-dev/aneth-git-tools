@@ -9,23 +9,15 @@
 #	                \n<path/to/bar>
 
 # Parameters: submodule
-function git-submodule-revision() {
+git-submodule-revision() {
 	[ 1 -eq ${#} ] || { echo Usage: ${FUNCNAME} submodule >&2 ; exit 1; }
 	git ls-files --error-unmatch --stage -- ${1} | awk '{print $2}'
 }
 
-# Parameters: submodule
-function git-submodule-check-name() {
-	[ 1 -eq ${#} ] || { echo Usage: ${FUNCNAME} submodule >&2 ; exit 1; }
-	submodule=$(git submodule status "${1}" 2>/dev/null | awk '{print $2}')
-	[ -z "${submodule}" ] && { echo No submodule named ${1} >&2 ; exit 1; }
-	echo ${submodule}
-}
-
 # Parameters: submodule branch revision
-function git-submodule-revision-update-shallow() {
+git-submodule-revision-update-shallow() {
 	[ 3 -eq ${#} ] || { echo Usage: ${FUNCNAME} submodule branch revision >&2 ; exit 1; }
-	submodule=$(git-submodule-check-name ${1})
+	submodule=$(check-submodule-name ${1})
 	[ 0 -eq $? ] || exit $?
 	branch=${2}
 	revision=${3}
@@ -51,7 +43,7 @@ function git-submodule-revision-update-shallow() {
 }
 
 # Parameters: [--init] [submodule1 [submodule2 [...]]]
-function git-submodule-update-shallow() {
+git-submodule-update-shallow() {
 	let init=0
 	for arg in ${*}; do
 		case ${arg} in
@@ -61,7 +53,7 @@ function git-submodule-update-shallow() {
 
 	# Check all modules before run update
 	for submodule in ${*}; do
-		git-submodule-check-name ${submodule} > /dev/null
+		check-submodule-name ${submodule} > /dev/null
 	done
 
 	if [ -z "$*" ]; then
@@ -72,7 +64,7 @@ function git-submodule-update-shallow() {
 	fi
 
 	for submodule in ${submodules}; do
-		submodule=$(git-submodule-check-name ${submodule})
+		submodule=$(check-submodule-name ${submodule})
 		[ 1 -eq $init ] && echo Initialize submodule ${submodule} && git submodule init ${submodule}
 		branch=$(git config --file=.gitmodules --get submodule.${submodule}.branch)
 		revision=$(git-submodule-revision ${submodule})
@@ -80,8 +72,17 @@ function git-submodule-update-shallow() {
 	done
 }
 
-function install() {
-	install_directory=${1?${FUNCNAME} Must take an installation directory as parameter}
+# Parameters: submodule
+check-submodule-name() {
+	[ 1 -eq ${#} ] || { echo Usage: ${FUNCNAME} submodule >&2 ; exit 1; }
+	submodule=$(git submodule status "${1}" 2>/dev/null | awk '{print $2}')
+	[ -z "${submodule}" ] && { echo No submodule named ${1} >&2 ; exit 1; }
+	echo ${submodule}
+}
+
+install() {
+	[ 1 -eq ${#} ] || { echo Usage: ${FUNCNAME} install-directory >&2 ; exit 1; }
+	install_directory=${1}
 	echo -n Want you really install Git commands into \"${install_directory}'" ? [y|N] '
 	read -e
 	case $(echo ${REPLY} | tr '[A-Z]' '[a-z]') in
@@ -89,7 +90,7 @@ function install() {
 		*) exit 0;;
 	esac
 
-	for command in $(awk '/^function\sgit/ {sub(/\s*\(\)$/, "", $2);print $2}' aeten-submodules.sh); do
+	for command in $(sed --quiet --regexp-extended 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' $0); do
 		echo Install Git command ${command}
 		ln -fs $(readlink -f ${0}) ${install_directory}/${command}
 	done
