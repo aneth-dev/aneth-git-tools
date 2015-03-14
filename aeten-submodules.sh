@@ -21,7 +21,8 @@ function git-submodule-revision-update-shallow() {
 	[ 0 -eq $? ] || exit $?
 	revision=${2}
 	echo "Shallow update submodule ${submodule} (${revision})"
-	[ -f .git/modules/${submodule}/config ] || git clone --depth 1 --no-single-branch --separate-git-dir -n .git/modules/${submodule}/ $(git config --file=.gitmodules --get submodule.${submodule}.url) ${submodule}
+	rm -rf .git/modules/${submodule} ${submodule}
+	git clone --depth 1 --no-single-branch --separate-git-dir=.git/modules/${submodule} $(git config --file=.gitmodules --get submodule.${submodule}.url) ${submodule}
 	(
 		cd ${submodule}
 		while ! git rev-list ${revision} ; do
