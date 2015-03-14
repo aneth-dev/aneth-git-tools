@@ -8,7 +8,6 @@
 #	sparse-checkout = <path/to/foo>\
 #	                \n<path/to/bar>
 
-
 __colorize() {
 	local color=$1
 	shift
@@ -28,15 +27,19 @@ FAIL=$(__colorize '1;31m' FAIL)
 
 pass() { __inform ${PASS}; }
 warn() { __inform ${WARN}; }
-fail() { __inform ${FAIL}; }
+fail() { __inform ${FAIL}; exit 1; }
 
 check() {
 	local error=$1
 	local message=$2
 	shift 2
 	echo -ne "[      ] ${message}${SAVE_CURSOR_POSITION}"
-	( ${*} >& /dev/null ) && pass || ${error}
+	( ${*} >& /dev/null )
+	error_code=$?
+	[ 0 -eq ${error_code} ] && pass || ${error}
+	return ${error_code}
 }
+
 
 
 # Parameters: submodule
@@ -56,9 +59,10 @@ git-submodule-revision-update-shallow() {
 	url=$(git config --file=.gitmodules --get submodule.${submodule}.url)
 	sparse_checkout=$(git config --file=.gitmodules --get submodule.${submodule}.sparse-checkout)
 	git_directory=.git/modules/${submodule}
-	echo "Shallow update submodule ${submodule} (${revision})"
-	rm -rf ${git_directory} ${submodule}
-	git clone --no-checkout --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
+	rm -rf ${git_directory}
+	check warn "Backup ${submodule} to ${submodule}~" mv ${submodule}{,~} || rm -rf ${submodule}
+	check fail "Shallow clone ${url} on branch ${branch} (depth ${depth})" git clone --no-checkout --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
+	[ -d ${submodule}~ ] && check warn "Delete bacckup ${submodule}~" rm -rf ${submodule}~
 	if [ ! -z "${sparse_checkout}" ]; then
 		git config --file=${git_directory}/config core.sparsecheckout true
 		echo "${sparse_checkout}" > ${git_directory}/info/sparse-checkout
@@ -66,25 +70,33 @@ git-submodule-revision-update-shallow() {
 	(
 		cd ${submodule}
 		while ! git rev-list ${revision} ; do
-			git fetch --depth=$((depth+=1)) origin
+			((depth+=1))
+			check fail "Shallow fetch ${submodule} (depth ${depth})" git fetch --depth=${depth} origin
 		done
-		git checkout ${revision}
+		check fail "Checkout ${submodule} (${revision})" git checkout --force ${revision}
 	)
-
 }
 
-# Parameters: [--init] [submodule1 [submodule2 [...]]]
+# Parameters: [--init] [--branch <branch>] -- [submodule1 [submodule2 [...]]]
 git-submodule-update-shallow() {
+	usage() { echo "${FUNCNAME} [--init] [--branch <branch>] -- [submodule1 [submodule2 [...]]]" >&2 ; exit 1; }
 	let init=0
-	for arg in ${*}; do
-		case ${arg} in
-			--init) let init=1 ; shift ;;
+	while test $# -ne 0; do
+		case "${1}" in
+			--init) let init=1 ;;
+			--branch) branch=${2} ; shift ;;
+			--branch=*) branch=${1/--branch=/} ;;
+			--) shift; break ;;
+			-*) usage ;;
+			*) break ;;
 		esac
+		shift
 	done
+	unset -f usage
 
 	# Check all modules before run update
 	for submodule in ${*}; do
-		check-submodule-name ${submodule} > /dev/null
+		check fail "Check submodule name ${submodule}" check-submodule-name ${submodule}
 	done
 
 	if [ -z "$*" ]; then
@@ -96,9 +108,13 @@ git-submodule-update-shallow() {
 
 	for submodule in ${submodules}; do
 		submodule=$(check-submodule-name ${submodule})
-		[ 1 -eq $init ] && echo Initialize submodule ${submodule} && git submodule init ${submodule}
-		branch=$(git config --file=.gitmodules --get submodule.${submodule}.branch)
-		revision=$(git-submodule-revision ${submodule})
+		[ 1 -eq $init ] && check fail "Initialize submodule ${submodule}" git submodule init ${submodule}
+		if [ -z "${branch}" ]; then
+			branch=$(git config --file=.gitmodules --get submodule.${submodule}.branch)
+			revision=$(git-submodule-revision ${submodule})
+		else
+			revision=HEAD
+		fi
 		git-submodule-revision-update-shallow ${submodule} ${branch} ${revision}
 	done
 }
