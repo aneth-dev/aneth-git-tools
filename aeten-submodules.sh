@@ -1,5 +1,13 @@
 #!/bin/bash
 
+#.gitmodules sample with branch and sparse-checkout new parameters:
+#[submodule "net.aeten.core"]
+#	path = <path>
+#	url = <url>
+#	branch = <branch-name>
+#	sparse-checkout = <path/to/foo>\
+#	                \n<path/to/bar>
+
 # Parameters: submodule
 function git-submodule-revision() {
 	[ 1 -eq ${#} ] || { echo Usage: ${FUNCNAME} submodule >&2 ; exit 1; }
@@ -23,10 +31,15 @@ function git-submodule-revision-update-shallow() {
 	revision=${3}
 	let depth=1
 	url=$(git config --file=.gitmodules --get submodule.${submodule}.url)
+	sparse_checkout=$(git config --file=.gitmodules --get submodule.${submodule}.sparse-checkout)
 	git_directory=.git/modules/${submodule}
 	echo "Shallow update submodule ${submodule} (${revision})"
-	rm -rf .git/modules/${submodule} ${submodule}
-	git clone --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
+	rm -rf ${git_directory} ${submodule}
+	git clone --no-checkout --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
+	if [ ! -z "${sparse_checkout}" ]; then
+		git config --file=${git_directory}/config core.sparsecheckout true
+		echo "${sparse_checkout}" > ${git_directory}/info/sparse-checkout
+	fi
 	(
 		cd ${submodule}
 		while ! git rev-list ${revision} ; do
