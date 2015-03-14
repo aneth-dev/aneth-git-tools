@@ -8,6 +8,37 @@
 #	sparse-checkout = <path/to/foo>\
 #	                \n<path/to/bar>
 
+
+__colorize() {
+	local color=$1
+	shift
+	echo $(tput colors 2>/dev/null | grep -q 8 && echo -e "\033[${color}${*}\033[0;0m" || echo "${*}")
+}
+
+__inform() {
+	echo -e "\r[ ${1} ]${RESTORE_CURSOR_POSITION}"
+	return 0
+}
+
+SAVE_CURSOR_POSITION='\033[s'
+RESTORE_CURSOR_POSITION='\033[u'
+WARN=$(__colorize '1;33m' WARN)
+PASS=$(__colorize '1;32m' PASS)
+FAIL=$(__colorize '1;31m' FAIL)
+
+pass() { __inform ${PASS}; }
+warn() { __inform ${WARN}; }
+fail() { __inform ${FAIL}; }
+
+check() {
+	local error=$1
+	local message=$2
+	shift 2
+	echo -ne "[      ] ${message}${SAVE_CURSOR_POSITION}"
+	( ${*} >& /dev/null ) && pass || ${error}
+}
+
+
 # Parameters: submodule
 git-submodule-revision() {
 	[ 1 -eq ${#} ] || { echo Usage: ${FUNCNAME} submodule >&2 ; exit 1; }
@@ -91,8 +122,8 @@ install() {
 	esac
 
 	for command in $(sed --quiet --regexp-extended 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' $0); do
-		echo Install Git command ${command}
-		ln -fs $(readlink -f ${0}) ${install_directory}/${command}
+		check fail "Install Git command ${command}" \
+			ln -s $(readlink -f ${0}) ${install_directory}/${command}
 	done
 }
 
