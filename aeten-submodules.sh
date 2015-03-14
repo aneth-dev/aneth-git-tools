@@ -2,37 +2,42 @@
 
 # Parameters: submodule
 function git-submodule-revision() {
-	: ${1?${FUNCNAME} Must take a submodule as first argument}
-	git submodule status ${1}|awk '{sub(/[-+]/,"",$1);print $1}'
+	[ 1 -eq ${#} ] || { echo Usage: ${FUNCNAME} submodule >&2 ; exit 1; }
+	git ls-files --error-unmatch --stage -- ${1} | awk '{print $2}'
 }
 
 # Parameters: submodule
 function git-submodule-check-name() {
-	: ${1?${FUNCNAME} Must take a submodule as first argument}
+	[ 1 -eq ${#} ] || { echo Usage: ${FUNCNAME} submodule >&2 ; exit 1; }
 	submodule=$(git submodule status "${1}" 2>/dev/null | awk '{print $2}')
 	[ -z "${submodule}" ] && { echo No submodule named ${1} >&2 ; exit 1; }
 	echo ${submodule}
 }
 
-# Parameters: submodule revision
+# Parameters: submodule branch revision
 function git-submodule-revision-update-shallow() {
-	: ${2?${FUNCNAME} Must take a submodule as first argument and a revision as second.}
+	[ 3 -eq ${#} ] || { echo Usage: ${FUNCNAME} submodule branch revision >&2 ; exit 1; }
 	submodule=$(git-submodule-check-name ${1})
 	[ 0 -eq $? ] || exit $?
-	revision=${2}
+	branch=${2}
+	revision=${3}
+	let depth=1
+	url=$(git config --file=.gitmodules --get submodule.${submodule}.url)
+	git_directory=.git/modules/${submodule}
 	echo "Shallow update submodule ${submodule} (${revision})"
 	rm -rf .git/modules/${submodule} ${submodule}
-	git clone --depth 1 --no-single-branch --separate-git-dir=.git/modules/${submodule} $(git config --file=.gitmodules --get submodule.${submodule}.url) ${submodule}
+	git clone --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
 	(
 		cd ${submodule}
 		while ! git rev-list ${revision} ; do
-			git fetch --depth=$((i+=1))
+			git fetch --depth=$((depth+=1)) origin
 		done
 		git checkout ${revision}
 	)
+
 }
 
-# Parameters: [submodule1 [submodule2 [...]]]
+# Parameters: [--init] [submodule1 [submodule2 [...]]]
 function git-submodule-update-shallow() {
 	let init=0
 	for arg in ${*}; do
@@ -47,7 +52,7 @@ function git-submodule-update-shallow() {
 	done
 
 	if [ -z "$*" ]; then
-		[ 1 -eq $init ] && echo Init all submodules && git submodule init && let init=0
+		[ 1 -eq $init ] && echo Initialize all submodules && git submodule init && let init=0
 		submodules=$(git submodule status|awk '{print $2}')
 	else
 		submodules=${*}
@@ -55,9 +60,10 @@ function git-submodule-update-shallow() {
 
 	for submodule in ${submodules}; do
 		submodule=$(git-submodule-check-name ${submodule})
-		[ 1 -eq $init ] && echo Init submodule ${submodule} && git submodule init ${submodule}
+		[ 1 -eq $init ] && echo Initialize submodule ${submodule} && git submodule init ${submodule}
+		branch=$(git config --file=.gitmodules --get submodule.${submodule}.branch)
 		revision=$(git-submodule-revision ${submodule})
-		git-submodule-revision-update-shallow ${submodule} ${revision}
+		git-submodule-revision-update-shallow ${submodule} ${branch} ${revision}
 	done
 }
 
