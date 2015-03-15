@@ -1,0 +1,5 @@
+[submodule "aeten-shell-log"]
+	path = aeten-shell-log
+	url = git@github.com:aeten/aeten-shell-log.git
+	branch = master
+	sparse-checkout = aeten-shell-log.sh
