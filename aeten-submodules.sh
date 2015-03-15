@@ -14,29 +14,82 @@ __colorize() {
 	echo $(tput colors 2>/dev/null | grep -q 8 && echo -e "\033[${color}${*}\033[0;0m" || echo "${*}")
 }
 
-__inform() {
-	echo -e "\r[ ${1} ]${RESTORE_CURSOR_POSITION}"
-	return 0
+__tag() {
+	echo -e "\r${OPEN_BRACKET}${1}${CLOSE_BRACKET}${RESTORE_CURSOR_POSITION}"
 }
 
 SAVE_CURSOR_POSITION='\033[s'
 RESTORE_CURSOR_POSITION='\033[u'
+MOVE_CURSOR_UP='\033[1A'
+INFO=$(__colorize '1;37m' INFO)
 WARN=$(__colorize '1;33m' WARN)
 PASS=$(__colorize '1;32m' PASS)
 FAIL=$(__colorize '1;31m' FAIL)
+ERROR=${FAIL}
+OPEN_BRACKET=$(__colorize '0;37m' '[ ')
+CLOSE_BRACKET=$(__colorize '0;37m' ' ]')
+EMPTY_TAG=$(printf "%4s")
 
-pass() { __inform ${PASS}; }
-warn() { __inform ${WARN}; }
-fail() { __inform ${FAIL}; exit 1; }
+__log() {
+	local level=${1}; shift
+	while test ${#} -ne 0; do
+		case "${1}" in
+			-*) args+=" ${1}"; shift;;
+			*) shift; break ;;
+		esac
+	done
+	echo -en "\r${OPEN_BRACKET}${level}${CLOSE_BRACKET} "
+	echo ${args} "${*}"
+}
+
+info() {
+	[ 0 -lt ${#} ] || { echo "Usage: ${FUNCNAME} <message>" >&2 ; exit 1; }
+	__log "${INFO}" "${*}"
+}
+pass() {
+	[ 0 -lt ${#} ] || { echo "Usage: ${FUNCNAME} <message>" >&2 ; exit 1; }
+	__log "${PASS}" "${*}"
+}
+warn() {
+	[ 0 -lt ${#} ] || { echo "Usage: ${FUNCNAME} <message>" >&2 ; exit 1; }
+	__log "${WARN}" "${*}"
+}
+error() {
+	[ 0 -lt ${#} ] || { echo "Usage: ${FUNCNAME} <message>" >&2 ; exit 1; }
+	__log "${FAIL}" "${*}"
+}
+fatal() {
+	[ 0 -lt ${#} ] || { echo "Usage: ${FUNCNAME} <message>" >&2 ; exit 1; }
+	__log "${FAIL}" "${*}"
+	exit 1
+}
+
+query() {
+	[ 0 -lt ${#} ] || { echo "Usage: ${FUNCNAME} <message>" >&2 ; exit 1; }
+	local out=/proc/${$}/fd/1
+	warn -n "${*}" > ${out}
+	echo -en "${SAVE_CURSOR_POSITION}"  > ${out}
+	read -e
+	echo -en ${MOVE_CURSOR_UP} > ${out}
+	__tag "${INFO}" > ${out}
+	echo -en ${MOVE_CURSOR_UP} > ${out}
+	echo ${REPLY}
+}
 
 check() {
-	local error=$1
+	[ 2 -lt ${#} ] || { echo "Usage: ${FUNCNAME} (warn|error|fatal) '<message>' <command>" >&2 ; exit 1; }
+	local level=$1
 	local message=$2
 	shift 2
-	echo -ne "[      ] ${message}${SAVE_CURSOR_POSITION}"
-	( ${*} >& /dev/null )
-	error_code=$?
-	[ 0 -eq ${error_code} ] && pass || ${error}
+	echo -ne "${OPEN_BRACKET}${EMPTY_TAG}${CLOSE_BRACKET} ${message}${SAVE_CURSOR_POSITION}"
+	local output
+	output=$( ( ${*} 2>&1 ) )
+	local error_code=${?}
+	[ 0 -eq ${error_code} ] && __tag "${PASS}" || case ${level} in
+		warn) __tag "${WARN}" ;;
+		error) __tag "${ERROR}"; echo "${*}"; echo "${output}" ;;
+		fatal) __tag "${FAIL}";   echo "${*}"; echo "${output}"; exit ${error_code} ;;
+	esac
 	return ${error_code}
 }
 
@@ -52,7 +105,7 @@ git-submodule-revision() {
 git-submodule-revision-update-shallow() {
 	[ 3 -eq ${#} ] || { echo Usage: ${FUNCNAME} submodule branch revision >&2 ; exit 1; }
 	submodule=$(check-submodule-name ${1})
-	[ 0 -eq $? ] || exit $?
+	[ 0 -eq ${?} ] || exit ${?}
 	branch=${2}
 	revision=${3}
 	let depth=1
@@ -61,7 +114,7 @@ git-submodule-revision-update-shallow() {
 	git_directory=.git/modules/${submodule}
 	rm -rf ${git_directory}
 	check warn "Backup ${submodule} to ${submodule}~" mv ${submodule}{,~} || rm -rf ${submodule}
-	check fail "Shallow clone ${url} on branch ${branch} (depth ${depth})" git clone --no-checkout --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
+	check fatal "Shallow clone ${url} on branch ${branch} (depth ${depth})" git clone --no-checkout --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
 	[ -d ${submodule}~ ] && check warn "Delete bacckup ${submodule}~" rm -rf ${submodule}~
 	if [ ! -z "${sparse_checkout}" ]; then
 		git config --file=${git_directory}/config core.sparsecheckout true
@@ -71,9 +124,9 @@ git-submodule-revision-update-shallow() {
 		cd ${submodule}
 		while ! git rev-list ${revision} ; do
 			((depth+=1))
-			check fail "Shallow fetch ${submodule} (depth ${depth})" git fetch --depth=${depth} origin
+			check fatal "Shallow fetch ${submodule} (depth ${depth})" git fetch --depth=${depth} origin
 		done
-		check fail "Checkout ${submodule} (${revision})" git checkout --force ${revision}
+		check fatal "Checkout ${submodule} (${revision})" git checkout --force ${revision}
 	)
 }
 
@@ -81,7 +134,7 @@ git-submodule-revision-update-shallow() {
 git-submodule-update-shallow() {
 	usage() { echo "${FUNCNAME} [--init] [--branch <branch>] -- [submodule1 [submodule2 [...]]]" >&2 ; exit 1; }
 	let init=0
-	while test $# -ne 0; do
+	while test ${#} -ne 0; do
 		case "${1}" in
 			--init) let init=1 ;;
 			--branch) branch=${2} ; shift ;;
@@ -96,10 +149,10 @@ git-submodule-update-shallow() {
 
 	# Check all modules before run update
 	for submodule in ${*}; do
-		check fail "Check submodule name ${submodule}" check-submodule-name ${submodule}
+		check fatal "Check submodule name ${submodule}" check-submodule-name ${submodule}
 	done
 
-	if [ -z "$*" ]; then
+	if [ -z "${*}" ]; then
 		[ 1 -eq $init ] && echo Initialize all submodules && git submodule init && let init=0
 		submodules=$(git submodule status|awk '{print $2}')
 	else
@@ -108,7 +161,7 @@ git-submodule-update-shallow() {
 
 	for submodule in ${submodules}; do
 		submodule=$(check-submodule-name ${submodule})
-		[ 1 -eq $init ] && check fail "Initialize submodule ${submodule}" git submodule init ${submodule}
+		[ 1 -eq $init ] && check fatal "Initialize submodule ${submodule}" git submodule init ${submodule}
 		if [ -z "${branch}" ]; then
 			branch=$(git config --file=.gitmodules --get submodule.${submodule}.branch)
 			revision=$(git-submodule-revision ${submodule})
@@ -130,15 +183,13 @@ check-submodule-name() {
 install() {
 	[ 1 -eq ${#} ] || { echo Usage: ${FUNCNAME} install-directory >&2 ; exit 1; }
 	install_directory=${1}
-	echo -n Want you really install Git commands into \"${install_directory}'" ? [y|N] '
-	read -e
-	case $(echo ${REPLY} | tr '[A-Z]' '[a-z]') in
+	case $(query Want you really install Git commands into \"${install_directory}'" ? [y|N] ' | tr '[A-Z]' '[a-z]') in
 		y|yes) ;;
 		*) exit 0;;
 	esac
 
 	for command in $(sed --quiet --regexp-extended 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' $0); do
-		check fail "Install Git command ${command}" \
+		check fatal "Install Git command ${command}" \
 			ln -s $(readlink -f ${0}) ${install_directory}/${command}
 	done
 }
@@ -146,7 +197,7 @@ install() {
 if [ -L ${0} ]; then
 	$(basename ${0}) ${*}
 else
-	if [ ${#} -ne 1 ] || [ ! -d "${1}" ]; then
+	if [ ${#} -ne 1 ] && [ ! -d "${1}" ]; then
 		echo Usage: ${0} install-directory >&2
 		exit 1
 	fi
