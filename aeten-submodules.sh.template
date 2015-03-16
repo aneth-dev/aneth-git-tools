@@ -29,6 +29,7 @@ git-submodule-revision-update-shallow() {
 	git_directory=.git/modules/${submodule}
 	rm -rf ${git_directory}
 	check warn "Backup ${submodule} to ${submodule}~" mv ${submodule}{,~} || rm -rf ${submodule}
+	mkdir --parent $(dirname ${git_directory})
 	check fatal "Shallow clone ${url} on branch ${branch} (depth ${depth})" git clone --no-checkout --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
 	[ -d ${submodule}~ ] && check warn "Delete bacckup ${submodule}~" rm -rf ${submodule}~
 	if [ ! -z "${sparse_checkout}" ]; then
