@@ -5,8 +5,8 @@
 #	path = <path>
 #	url = <url>
 #	branch = <branch-name>
-#	sparse-checkout = <path/to/foo>\
-#	                \n<path/to/bar>
+#	sparse-checkout = <path/to/foo>\n \
+#	                  <path/to/bar>
 
 @@SHELL-LOG@@
 
@@ -25,13 +25,13 @@ git-submodule-revision-update-shallow() {
 	revision=${3}
 	let depth=1
 	url=$(git config --file=.gitmodules --get submodule.${submodule}.url)
-	sparse_checkout=$(git config --file=.gitmodules --get submodule.${submodule}.sparse-checkout)
+	sparse_checkout=$(git config --file=.gitmodules --get submodule.${submodule}.sparse-checkout | sed --regexp-extended 's/(^\s+)|(\s$)//')
 	git_directory=.git/modules/${submodule}
 	rm -rf ${git_directory}
 	check warn "Backup ${submodule} to ${submodule}~" mv ${submodule}{,~} || rm -rf ${submodule}
 	mkdir --parent $(dirname ${git_directory})
 	check fatal "Shallow clone ${url} on branch ${branch} (depth ${depth})" git clone --no-checkout --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
-	[ -d ${submodule}~ ] && check warn "Delete bacckup ${submodule}~" rm -rf ${submodule}~
+	[ -d ${submodule}~ ] && check warn "Delete backup ${submodule}~" rm -rf ${submodule}~
 	if [ ! -z "${sparse_checkout}" ]; then
 		git config --file=${git_directory}/config core.sparsecheckout true
 		echo "${sparse_checkout}" > ${git_directory}/info/sparse-checkout
