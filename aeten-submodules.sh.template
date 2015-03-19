@@ -8,7 +8,7 @@
 #	sparse-checkout = <path/to/foo>\n \
 #	                  <path/to/bar>
 
-@@SHELL-LOG@@
+@@SHELL-LOG-INCLUDE@@
 
 # Parameters: submodule
 git-submodule-revision() {

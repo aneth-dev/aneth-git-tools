@@ -1,14 +1,14 @@
 SHELL_LOG_DIR := ./aeten-shell-log
 INSTALL_DIR := .
 TARGETS = aeten-submodules.sh
-SHELL_LOG = @@SHELL-LOG@@
+SHELL_LOG = @@SHELL-LOG-INCLUDE@@
 SHELL_LOG_SCRIPT = $(SHELL_LOG_DIR)/aeten-shell-log.sh
 
 all: $(TARGETS)
 
 %.sh: %.sh.template
 	test -f $(SHELL_LOG_SCRIPT)
-	sed -e '/$(SHELL_LOG)/r $(SHELL_LOG_SCRIPT)' -e '/$(SHELL_LOG)/d' $< > $@
+	sed -e '/$(SHELL_LOG)/r $(SHELL_LOG_SCRIPT)' -e 's/$(SHELL_LOG)/let SHELL_LOG_INCLUDE=1/' $< > $@
 	{ test -f .gitignore &&  grep '^$@$$' .gitignore; } || sed --quiet --regexp-extended -e '1i $@' -e 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' $< >> .gitignore 
 	chmod a+rx $@
 
