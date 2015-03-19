@@ -28,10 +28,10 @@ git-submodule-revision-update-shallow() {
 	sparse_checkout=$(git config --file=.gitmodules --get submodule.${submodule}.sparse-checkout | sed --regexp-extended 's/(^\s+)|(\s$)//')
 	git_directory=.git/modules/${submodule}
 	rm -rf ${git_directory}
-	check warn "Backup ${submodule} to ${submodule}~" mv ${submodule}{,~} || rm -rf ${submodule}
+	check -l warn -m "Backup ${submodule} to ${submodule}~" mv ${submodule}{,~} || rm -rf ${submodule}
 	mkdir --parent $(dirname ${git_directory})
-	check fatal "Shallow clone ${url} on branch ${branch} (depth ${depth})" git clone --no-checkout --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
-	[ -d ${submodule}~ ] && check warn "Delete backup ${submodule}~" rm -rf ${submodule}~
+	check -m "Shallow clone ${url} on branch ${branch} (depth ${depth})" git clone --no-checkout --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
+	[ -d ${submodule}~ ] && check -l warn -m "Delete backup ${submodule}~" rm -rf ${submodule}~
 	if [ ! -z "${sparse_checkout}" ]; then
 		git config --file=${git_directory}/config core.sparsecheckout true
 		echo "${sparse_checkout}" > ${git_directory}/info/sparse-checkout
@@ -40,9 +40,9 @@ git-submodule-revision-update-shallow() {
 		cd ${submodule}
 		while ! git rev-list ${revision} ; do
 			((depth+=1))
-			check fatal "Shallow fetch ${submodule} (depth ${depth})" git fetch --depth=${depth} origin
+			check -m "Shallow fetch ${submodule} (depth ${depth})" git fetch --depth=${depth} origin
 		done
-		check fatal "Checkout ${submodule} (${revision})" git checkout --force ${revision}
+		check -m "Checkout ${submodule} (${revision})" git checkout --force ${revision}
 	)
 }
 
@@ -65,7 +65,7 @@ git-submodule-update-shallow() {
 
 	# Check all modules before run update
 	for submodule in ${*}; do
-		check fatal "Check submodule name ${submodule}" check-submodule-name ${submodule}
+		check -m "Check submodule name ${submodule}" check-submodule-name ${submodule}
 	done
 
 	if [ -z "${*}" ]; then
@@ -77,7 +77,7 @@ git-submodule-update-shallow() {
 
 	for submodule in ${submodules}; do
 		submodule=$(check-submodule-name ${submodule})
-		[ 1 -eq $init ] && check fatal "Initialize submodule ${submodule}" git submodule init ${submodule}
+		[ 1 -eq $init ] && check -m "Initialize submodule ${submodule}" git submodule init ${submodule}
 		if [ -z "${branch}" ]; then
 			branch=$(git config --file=.gitmodules --get submodule.${submodule}.branch)
 			revision=$(git-submodule-revision ${submodule})
@@ -105,7 +105,7 @@ install() {
 	esac
 
 	for command in $(sed --quiet --regexp-extended 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' $0); do
-		check fatal "Install Git command ${command}" \
+		check -m "Install Git command ${command}" \
 			ln -s $(readlink -f ${0}) ${install_directory}/${command}
 	done
 }
