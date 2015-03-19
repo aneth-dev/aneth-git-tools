@@ -9,7 +9,7 @@ all: $(TARGETS)
 %.sh: %.sh.template
 	test -f $(SHELL_LOG_SCRIPT)
 	sed -e '/$(SHELL_LOG)/r $(SHELL_LOG_SCRIPT)' -e '/$(SHELL_LOG)/d' $< > $@
-	grep '^$@$$' .gitignore || sed --quiet --regexp-extended -e '1i $@' -e 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' $< >> .gitignore 
+	{ test -f .gitignore &&  grep '^$@$$' .gitignore; } || sed --quiet --regexp-extended -e '1i $@' -e 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' $< >> .gitignore 
 	chmod a+rx $@
 
 .gitignore: $(TARGETS)
