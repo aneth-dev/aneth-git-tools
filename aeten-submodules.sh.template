@@ -38,7 +38,7 @@ git-submodule-revision-update-shallow() {
 	fi
 	(
 		cd ${submodule}
-		while ! git rev-list ${revision} ; do
+		while ! git rev-list ${revision} &>/dev/null; do
 			((depth+=1))
 			check -m "Shallow fetch ${submodule} (depth ${depth})" git fetch --depth=${depth} origin
 		done
