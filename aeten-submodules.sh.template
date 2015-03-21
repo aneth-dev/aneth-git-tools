@@ -99,10 +99,7 @@ check-submodule-name() {
 install() {
 	[ 1 -eq ${#} ] || { echo Usage: ${FUNCNAME} install-directory >&2 ; exit 1; }
 	install_directory=${1}
-	case $(query Want you really install Git commands into \"${install_directory}'" ? [y|N] ' | tr '[A-Z]' '[a-z]') in
-		y|yes) ;;
-		*) exit 0;;
-	esac
+	confirm Want you really install Git commands into \"${install_directory}'" ?' || exit 0
 
 	for command in $(sed --quiet --regexp-extended 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' $0); do
 		check -m "Install Git command ${command}" \
