@@ -1,18 +1,19 @@
-SHELL_LOG_DIR := ./aeten-shell-log
+AETEN_CLI_DIR := ./aeten-cli
 prefix := /usr/local
+bin := $(prefix)/bin
 lib := $(prefix)/lib
-include_log_shell := true
+include_cli := true
 
 SCRIPT = aeten-submodules.sh
 COMMANDS = $(shell bash -c '. $$(pwd)/$(SCRIPT) ; __api $(SCRIPT)')
-LINKS = $(addprefix $(prefix)/bin/,$(COMMANDS))
+LINKS = $(addprefix $(bin)/,$(COMMANDS))
 LIB_DIR = $(shell readlink -f "$$(test '$(lib)' = '$$(pwd)' && echo $(lib) || echo $(lib))")
 
 CUR_DIR = $(shell readlink -f "$(CURDIR)")
-SHELL_LOG = \#@@SHELL-LOG-INCLUDE@@
-SHELL_LOG_SCRIPT = $(SHELL_LOG_DIR)/aeten-shell-log.sh
+AETEN_CLI = \#@@AETEN-CLI-INCLUDE@@
+AETEN_CLI_SCRIPT = $(AETEN_CLI_DIR)/aeten-cli.sh
 
-check = @$(SHELL_LOG_SCRIPT) check
+check = @$(AETEN_CLI_SCRIPT) check
 
 .PHONY: all install uninstall
 all: .gitignore
@@ -33,10 +34,9 @@ clean:
 
 ifneq ($(LIB_DIR),$(CUR_DIR)) # Prevent circular dependency
 $(LIB_DIR)/%: %
-	echo include_log_shell=$(include_log_shell)
-ifeq (true,$(include_log_shell))
-	$(check) -m 'Check submodule checkout' test -f $(SHELL_LOG_SCRIPT)
-	$(check) -m 'Install lib $@ with aeten-shell-log inclusion' "sed -e '/$(SHELL_LOG)/r $(SHELL_LOG_SCRIPT)' -e 's/$(SHELL_LOG)/let SHELL_LOG_INCLUDE=1/' -e '/^#!\/bin\/sh/d' $< > $@"
+ifeq (true,$(include_cli))
+	$(check) -m 'Check submodule checkout' test -f $(AETEN_CLI_SCRIPT)
+	$(check) -m 'Install lib $@ with aeten-cli inclusion' "sed -e '/$(AETEN_CLI)/r $(AETEN_CLI_SCRIPT)' -e 's/$(AETEN_CLI)/let AETEN_CLI_INCLUDE=1/' -e '/^#!\/bin\/sh/d' $< > $@"
 else
 	$(check) -m 'Install lib $@' cp $< $@
 endif

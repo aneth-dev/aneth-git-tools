@@ -8,7 +8,7 @@
 #	sparse-checkout = <path/to/foo>\n \
 #	                  <path/to/bar>
 
-#@@SHELL-LOG-INCLUDE@@
+#@@ATEN-CLI-INCLUDE@@
 
 __api() {
 	sed --quiet --regexp-extended 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' "${*}" 2>/dev/null
