@@ -8,7 +8,11 @@
 #	sparse-checkout = <path/to/foo>\n \
 #	                  <path/to/bar>
 
-@@SHELL-LOG-INCLUDE@@
+#@@SHELL-LOG-INCLUDE@@
+
+__api() {
+	sed --quiet --regexp-extended 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' "${*}" 2>/dev/null
+}
 
 # Parameters: submodule
 git-submodule-revision() {
@@ -107,13 +111,12 @@ install() {
 	done
 }
 
-if [ -L ${0} ]; then
-	$(basename ${0}) ${*}
-else
-	if [ ${#} -ne 1 ] && [ ! -d "${1}" ]; then
-		echo Usage: ${0} install-directory >&2
-		exit 1
-	fi
-	install ${*}
+if [ -L "${0}" ] && [ 1 -eq $(__api "${0}"|grep "$(basename ${0})"|wc -l) ]; then
+   $(basename ${0}) "${@}"
+elif [ ! -L "${0}" ]; then
+   cmd=${1}
+   if [ 1 -eq $(__api "${0}"|grep "${cmd}"|wc -l) ]; then
+      shift
+      ${cmd} "${@}"
+   fi
 fi
-exit 0

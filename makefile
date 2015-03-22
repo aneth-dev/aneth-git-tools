@@ -1,29 +1,47 @@
 SHELL_LOG_DIR := ./aeten-shell-log
-INSTALL_DIR := .
-TARGETS = aeten-submodules.sh
-SHELL_LOG = @@SHELL-LOG-INCLUDE@@
+prefix := /usr/local
+lib := $(prefix)/lib
+include_log_shell := true
+
+SCRIPT = aeten-submodules.sh
+COMMANDS = $(shell bash -c '. $$(pwd)/$(SCRIPT) ; __api $(SCRIPT)')
+LINKS = $(addprefix $(prefix)/bin/,$(COMMANDS))
+LIB_DIR = $(shell readlink -f "$$(test '$(lib)' = '$$(pwd)' && echo $(lib) || echo $(lib))")
+
+CUR_DIR = $(shell readlink -f "$(CURDIR)")
+SHELL_LOG = \#@@SHELL-LOG-INCLUDE@@
 SHELL_LOG_SCRIPT = $(SHELL_LOG_DIR)/aeten-shell-log.sh
+
 check = @$(SHELL_LOG_SCRIPT) check
 
-all: $(TARGETS)
+.PHONY: all install uninstall
+all: .gitignore
 
 %.sh: %.sh.template
-	$(check) -m 'Check submodule checkout' test -f $(SHELL_LOG_SCRIPT)
-	$(check) -m 'Insert shell login for standalone use' sed -e '/$(SHELL_LOG)/r $(SHELL_LOG_SCRIPT)' -e \'s/$(SHELL_LOG)/let SHELL_LOG_INCLUDE=1/\' $< \> $@
-	$(check) -m 'Update .gitignore' "{ test -f .gitignore &&  grep '^$@$$' .gitignore; } || sed --quiet --regexp-extended -e '1i $@' -e 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' $< >> .gitignore"
-	$(check) -m 'Set exec flag to $@' chmod a+rx $@
 
-.gitignore: $(TARGETS)
-	$(check) -m 'Generate .gitignore' for target in $^; do\
-		./$$target $(INSTALL_DIR); \
-		grep \'^$${target}\' .gitignore \|\| sed --quiet --regexp-extended -e \'1i $${target}\' -e \'s/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p\' $${target}.template \>\> .gitignore \
-	done
+.gitignore: $(SCRIPT)
+	$(check) -m 'Update .gitignore' "echo .gitignore > .gitignore && sed --quiet --regexp-extended 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' $< >> .gitignore"
 
-install: $(TARGETS)
-	for target in $^; do\
-		./$${target} $(INSTALL_DIR); \
-	done
+install: $(LINKS)
+
+uninstall:
+	$(check) -m 'Uninstall lib' rm -f $(filter-out $(CUR_DIR)/$(SCRIPT),$(LIB_DIR)/$(SCRIPT))
+	$(check) -m 'Uninstall symlinks' rm -f $(LINKS)
 
 clean:
-	$(check) -m 'Remove .gitignore and targets' rm -f .gitignore $(TARGETS)
-	$(check) -m 'Remove symlinks' find . -mindepth 1 -maxdepth 1 -type l -exec rm -f {} '\;'
+	$(check) -m 'Remove .gitignore' rm -f .gitignore
+
+ifneq ($(LIB_DIR),$(CUR_DIR)) # Prevent circular dependency
+$(LIB_DIR)/%: %
+	echo include_log_shell=$(include_log_shell)
+ifeq (true,$(include_log_shell))
+	$(check) -m 'Check submodule checkout' test -f $(SHELL_LOG_SCRIPT)
+	$(check) -m 'Install lib $@ with aeten-shell-log inclusion' "sed -e '/$(SHELL_LOG)/r $(SHELL_LOG_SCRIPT)' -e 's/$(SHELL_LOG)/let SHELL_LOG_INCLUDE=1/' -e '/^#!\/bin\/sh/d' $< > $@"
+else
+	$(check) -m 'Install lib $@' cp $< $@
+endif
+	$(check) -m 'Set exec flag to $@' chmod a+rx $@
+endif
+
+$(LINKS): $(LIB_DIR)/$(SCRIPT)
+	$(check) -m 'Install symlink $@' ln -s $< $@
