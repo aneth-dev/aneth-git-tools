@@ -104,14 +104,11 @@ __submodule-reset-shallow() {
 		git config --file=${git_directory}/config core.sparsecheckout true
 		echo "${sparse_checkout}" > ${git_directory}/info/sparse-checkout
 	fi
-	(
-		cd ${submodule}
-		while ! git rev-list ${revision} &>/dev/null; do
-			((depth+=1))
-			check -m "Shallow fetch ${submodule} (depth ${depth})" git fetch --depth=${depth} origin
-		done
-		check -m "Checkout ${submodule} (${revision})" git checkout --force ${revision}
-	)
+	while ! git --git-dir=${git_directory} rev-list ${revision} &>/dev/null; do
+		((depth+=1))
+		check -m "Shallow fetch ${submodule} (depth ${depth})" git --git-dir=${git_directory} fetch --depth=${depth} origin
+	done
+	check -m "Checkout ${submodule} (${revision})" git --git-dir=${git_directory} --work-tree=${submodule} checkout --force ${revision}
 }
 
 # Parameters: [--help] [--init] [--branch <branch>] -- [submodule1 [submodule2 [...]]]
@@ -161,11 +158,14 @@ git-submodule-reset-shallow() {
 		[ 1 -eq $init ] && check -m "Initialize submodule ${submodule}" git submodule init ${submodule}
 		if [ -z "${branch}" ]; then
 			branch=$(git config --file=.gitmodules --get submodule.${submodule}.branch)
+			[ -z "${branch}" ] && fatal --erno 2 No branch set for submodule ${submodule}.
 			[ -z "${revision}" ] && revision=$(git-submodule-show-rev ${submodule})
 		else
 			[ -z "${revision}" ] && revision=HEAD
 		fi
 		__submodule-reset-shallow --name ${submodule} --branch ${branch} --revision ${revision}
+		revision=
+		branch=
 	done
 }
 
