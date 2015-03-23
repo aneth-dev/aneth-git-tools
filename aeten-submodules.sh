@@ -105,7 +105,7 @@ __submodule-reset-shallow() {
 		echo "${sparse_checkout}" > ${git_directory}/info/sparse-checkout
 	fi
 	while ! git --git-dir=${git_directory} rev-list ${revision} &>/dev/null; do
-		((depth+=1))
+		((depth*=2))
 		check -m "Shallow fetch ${submodule} (depth ${depth})" git --git-dir=${git_directory} fetch --depth=${depth} origin
 	done
 	check -m "Checkout ${submodule} (${revision})" git --git-dir=${git_directory} --work-tree=${submodule} checkout --force ${revision}
