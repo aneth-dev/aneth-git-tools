@@ -45,7 +45,7 @@ git-submodule-check() {
 	for submodule in ${submodules}; do
 		check -m "Check submodule ${1}" test "$(git-submodule-checked-out ${1})" = "$(git-submodule-show-rev ${1})" || let error+=1
 	done
-	[ ${error} -eq 0 ] || fatal One or more submodule out of sync
+	[ ${error} -eq 0 ] || fatal One or more submodule out of sync.
 }
 
 # Parameters: submodule
@@ -158,7 +158,7 @@ git-submodule-reset-shallow() {
 		[ 1 -eq $init ] && check -m "Initialize submodule ${submodule}" git submodule init ${submodule}
 		if [ -z "${branch}" ]; then
 			branch=$(git config --file=.gitmodules --get submodule.${submodule}.branch)
-			[ -z "${branch}" ] && fatal --erno 2 No branch set for submodule ${submodule}.
+			[ -z "${branch}" ] && fatal --errno 2 No branch set for submodule ${submodule}.
 			[ -z "${revision}" ] && revision=$(git-submodule-show-rev ${submodule})
 		else
 			[ -z "${revision}" ] && revision=HEAD
