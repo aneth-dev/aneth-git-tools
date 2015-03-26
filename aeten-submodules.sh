@@ -18,7 +18,7 @@ __usage() {
 	local errno
 	errno=${1}
 	shift
-	fatal --errno ${errno} "${@}"
+	$([ ${errno} -eq 0 ] && echo inform || echo fatal --errno ${errno}) "${@}"
 	exit ${errno}
 }
 
@@ -26,7 +26,7 @@ __usage() {
 __check-submodule-name() {
 	[ 1 -eq ${#} ] || { __usage 1 "Usage: ${FUNCNAME} submodule"; }
 	submodule=$(git submodule status "${1}" 2>/dev/null | awk '{print $2}')
-	[ -z "${submodule}" ] && { echo No submodule named ${1} >&2 ; exit 1; }
+	[ -z "${submodule}" ] && { fatal No submodule named ${1}; exit 1; }
 	echo ${submodule}
 }
 
@@ -35,6 +35,22 @@ git-submodule-check() {
 	local submodules
 	local submodule
 	local error
+   local verbose
+   local quiet
+	usage="\t${FUNCNAME} [--help]
+\t${FUNCNAME} [--verbose] <submodule>
+\t${FUNCNAME} [--quiet] <submodule>"
+   while test ${#} -ne 0; do
+      case "${1}" in
+         --verbose|-v) verbose=${1};;
+         --quiet|-q)   quiet=${1};;
+         --help|-h)    __usage 0 "${usage}";;
+         *)            __usage 1 "Usage: ${usage}";;
+      esac
+      shift
+   done
+   [ ! -z ${verbose} -a ! -z ${quiet} ] && __usage 1 "--quiet and --verbose are incompatible options.\nUsage: ${usage}"
+
 	if [ -z "${*}" ]; then
 		submodules=$(git submodule status|awk '{print $2}')
 	else
@@ -72,21 +88,25 @@ __submodule-reset-shallow() {
 	local sparse_checkout
 	local git_directory
 	local url
+   local verbose
+   local quiet
 	usage="${FUNCNAME} --name <module> --branch <branch> --revision <revision>"
 	while test ${#} -ne 0; do
 		case "${1}" in
-			--branch) branch=${2} ; shift ;;
-			--branch=*) branch=${1/--branch=/};;
-			--revision) revision=${2} ; shift ;;
+			--branch)     branch=${2} ; shift ;;
+			--branch=*)   branch=${1/--branch=/};;
+			--revision)   revision=${2} ; shift ;;
 			--revision=*) revision=${1/--revision=/};;
-			--name) name=${2}; shift; ;;
-			--name=*) name=${1/--name=/};;
-			*) __usage 1 Usage: ${usage};;
+			--name)       name=${2}; shift; ;;
+			--name=*)     name=${1/--name=/};;
+         --verbose|-v) verbose=${1} ;;
+         --quiet|-q)   quiet=${1} ;;
+			*)            __usage 1 "Usage: ${usage}";;
 		esac
 		shift
 	done
 	for arg in name branch revision; do
-		[ -z "${!arg}" ] && __usage 1 ${usage}
+		[ -z "${!arg}" ] && __usage 1 "${usage}"
 	done
 	submodule=$(__check-submodule-name ${name})
 	[ 0 -eq ${?} ] || fatal --errno ${?} "invalid module name ${name}"
@@ -96,19 +116,19 @@ __submodule-reset-shallow() {
 	sparse_checkout=$(git config --file=.gitmodules --get submodule.${submodule}.sparse-checkout | sed --regexp-extended 's/(^\s+)|(\s$)//')
 	git_directory=.git/modules/${submodule}
 	rm -rf ${git_directory}
-	check -l warn -m "Backup ${submodule} to ${submodule}~" mv ${submodule}{,~} || rm -rf ${submodule}
+	mv ${submodule}{,~} && debug Backup ${submodule} to ${submodule}~ || rm -rf ${submodule}
 	mkdir --parent $(dirname ${git_directory})
-	check -m "Shallow clone ${url} on branch ${branch} (depth ${depth})" git clone --no-checkout --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
-	[ -d ${submodule}~ ] && check -l warn -m "Delete backup ${submodule}~" rm -rf ${submodule}~
+	check ${verbose} ${quiet} -m "Shallow clone ${url} on branch ${branch} (depth ${depth})" git clone --no-checkout --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
+	[ -d ${submodule}~ ] && rm -rf ${submodule}~ && debug Delete backup ${submodule}~
 	if [ ! -z "${sparse_checkout}" ]; then
 		git config --file=${git_directory}/config core.sparsecheckout true
 		echo "${sparse_checkout}" > ${git_directory}/info/sparse-checkout
 	fi
 	while ! git --git-dir=${git_directory} rev-list ${revision} &>/dev/null; do
 		((depth*=2))
-		check -m "Shallow fetch ${submodule} (depth ${depth})" git --git-dir=${git_directory} fetch --depth=${depth} origin
+		check ${verbose} ${quiet} -m "Shallow fetch ${submodule} (depth ${depth})" git --git-dir=${git_directory} fetch --depth=${depth} origin
 	done
-	check -m "Checkout ${submodule} (${revision})" git --git-dir=${git_directory} --work-tree=${submodule} checkout --force ${revision}
+	check ${verbose} ${quiet} -m "Checkout ${submodule} (${revision})" git --git-dir=${git_directory} --work-tree=${submodule} checkout --force ${revision}
 }
 
 # Parameters: [--help] [--init] [--branch <branch>] -- [submodule1 [submodule2 [...]]]
@@ -117,25 +137,30 @@ git-submodule-reset-shallow() {
 	local init
 	local branch
 	local revision
+   local verbose
+   local quiet
 	usage="\t${FUNCNAME} [--help]
 \t${FUNCNAME} [--init] [--branch <branch>] -- [<submodule1> [<submodule2> [...]]]
 \t${FUNCNAME} --branch <branch> --revision <revision> [--] <submodule>"
 	let init=0
 	while test ${#} -ne 0; do
 		case "${1}" in
-			--init|-i) let init=1;;
-			--branch|-b) branch=${2} ; shift;;
-			--branch=*) branch=${1/--branch=/};;
-			--revision|r) revision=${2} ; shift;;
-			--revision=*) revision=${1/--revision=/};;
-			--help) __usage 0 ${usage};;
-			--) shift; break;;
-			-*) __usage 1 "Usage:\n${usage}";;
-			*) break;;
+			--init|-i)     let init=1;;
+			--branch|-b)   branch=${2} ; shift;;
+			--branch=*)    branch=${1/--branch=/};;
+			--revision|-r) revision=${2} ; shift;;
+			--revision=*)  revision=${1/--revision=/};;
+			--verbose|-q)  verbose=${1};;
+			--quiet|-q)    quiet=${1};;
+			--help)        __usage 0 "${usage}";;
+			--)            shift; break;;
+			-*)            __usage 1 "Usage:\n${usage}";;
+			*)             break;;
 		esac
 		shift
 	done
 	unset -f usage
+	[ ! -z "${verbose}" -a ! -z "${quiet}" ] && __usage 1 "--quiet and --verbose are incompatible options.\nUsage: ${usage}"
 
 	if [ ! -z "${revision}" ] && [ 1 -ne ${#} ]; then
 		__usage 1 "Usage:\n${usage}"
@@ -143,7 +168,7 @@ git-submodule-reset-shallow() {
 
 	# Check all modules before run update
 	for submodule in ${*}; do
-		__check-submodule-name "${submodule}" >/dev/null || fatal "Check submodule name ${submodule}"
+		__check-submodule-name "${submodule}" >/dev/null
 	done
 
 	if [ -z "${*}" ]; then
@@ -163,7 +188,7 @@ git-submodule-reset-shallow() {
 		else
 			[ -z "${revision}" ] && revision=HEAD
 		fi
-		__submodule-reset-shallow --name ${submodule} --branch ${branch} --revision ${revision}
+		__submodule-reset-shallow  ${verbose} ${quiet} --name ${submodule} --branch ${branch} --revision ${revision}
 		revision=
 		branch=
 	done
