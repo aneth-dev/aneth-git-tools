@@ -8,8 +8,6 @@
 #	sparse-checkout = <path/to/foo>\n \
 #							<path/to/bar>
 
-#@@AETEN-CLI-INCLUDE@@
-
 __api() {
 	sed --quiet --regexp-extended 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' "${*}" 2>/dev/null
 }
@@ -24,7 +22,7 @@ __usage() {
 
 # Parameters: submodule
 __check-submodule-name() {
-	[ 1 -eq ${#} ] || { __usage 1 "Usage: ${FUNCNAME} submodule"; }
+	[ 1 -eq ${#} ] || { __usage 1 "${@}\nUsage: ${FUNCNAME} submodule"; }
 	submodule=$(git submodule status "${1}" 2>/dev/null | awk '{print $2}')
 	[ -z "${submodule}" ] && { fatal No submodule named ${1}; exit 1; }
 	echo ${submodule}
@@ -45,11 +43,13 @@ git-submodule-check() {
          --verbose|-v) verbose=${1};;
          --quiet|-q)   quiet=${1};;
          --help|-h)    __usage 0 "${usage}";;
-         *)            __usage 1 "Usage: ${usage}";;
+         -*)           __usage 1 "Usage: ${usage}";;
+			*)            break;;
       esac
       shift
    done
-   [ ! -z ${verbose} -a ! -z ${quiet} ] && __usage 1 "--quiet and --verbose are incompatible options.\nUsage: ${usage}"
+   [ ! -z ${verbose} ] && [ ! -z ${quiet} ] && __usage 1 "--quiet and --verbose are incompatible options.\nUsage: ${usage}"
+	echo $1
 
 	if [ -z "${*}" ]; then
 		submodules=$(git submodule status|awk '{print $2}')
@@ -193,6 +193,8 @@ git-submodule-reset-shallow() {
 		branch=
 	done
 }
+
+#@@AETEN-CLI-INCLUDE@@
 
 if [ -L "${0}" ] && [ 1 -eq $(__api "${0}"|grep "^$(basename ${0})$"|wc -l) ]; then
 	$(basename ${0}) "${@}"
