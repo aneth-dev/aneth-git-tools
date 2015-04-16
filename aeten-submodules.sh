@@ -33,22 +33,22 @@ git-submodule-check() {
 	local submodules
 	local submodule
 	local error
-   local verbose
-   local quiet
+	local verbose
+	local quiet
 	usage="\t${FUNCNAME} [--help]
 \t${FUNCNAME} [--verbose] <submodule>
 \t${FUNCNAME} [--quiet] <submodule>"
-   while test ${#} -ne 0; do
-      case "${1}" in
-         --verbose|-v) verbose=${1};;
-         --quiet|-q)   quiet=${1};;
-         --help|-h)    __usage 0 "${usage}";;
-         -*)           __usage 1 "Usage: ${usage}";;
+	while test ${#} -ne 0; do
+		case "${1}" in
+			--verbose|-v) verbose=${1};;
+			--quiet|-q)   quiet=${1};;
+			--help|-h)    __usage 0 "${usage}";;
+			-*)           __usage 1 "Usage: ${usage}";;
 			*)            break;;
-      esac
-      shift
-   done
-   [ ! -z ${verbose} ] && [ ! -z ${quiet} ] && __usage 1 "--quiet and --verbose are incompatible options.\nUsage: ${usage}"
+		esac
+		shift
+	done
+	[ ! -z ${verbose} ] && [ ! -z ${quiet} ] && __usage 1 "--quiet and --verbose are incompatible options.\nUsage: ${usage}"
 	echo $1
 
 	if [ -z "${*}" ]; then
@@ -88,8 +88,8 @@ __submodule-reset-shallow() {
 	local sparse_checkout
 	local git_directory
 	local url
-   local verbose
-   local quiet
+	local verbose
+	local quiet
 	usage="${FUNCNAME} --name <module> --branch <branch> --revision <revision>"
 	while test ${#} -ne 0; do
 		case "${1}" in
@@ -99,8 +99,8 @@ __submodule-reset-shallow() {
 			--revision=*) revision=${1/--revision=/};;
 			--name)       name=${2}; shift; ;;
 			--name=*)     name=${1/--name=/};;
-         --verbose|-v) verbose=${1} ;;
-         --quiet|-q)   quiet=${1} ;;
+			--verbose|-v) verbose=${1} ;;
+			--quiet|-q)   quiet=${1} ;;
 			*)            __usage 1 "Usage: ${usage}";;
 		esac
 		shift
@@ -137,8 +137,8 @@ git-submodule-reset-shallow() {
 	local init
 	local branch
 	local revision
-   local verbose
-   local quiet
+	local verbose
+	local quiet
 	usage="\t${FUNCNAME} [--help]
 \t${FUNCNAME} [--init] [--branch <branch>] -- [<submodule1> [<submodule2> [...]]]
 \t${FUNCNAME} --branch <branch> --revision <revision> [--] <submodule>"
