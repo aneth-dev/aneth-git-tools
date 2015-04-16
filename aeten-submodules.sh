@@ -35,20 +35,22 @@ git-submodule-check() {
 	local error
 	local verbose
 	local quiet
-	usage="\t${FUNCNAME} [--help]
-\t${FUNCNAME} [--verbose] <submodule>
-\t${FUNCNAME} [--quiet] <submodule>"
+	usage="	${FUNCNAME} [--help]
+	${FUNCNAME} [--verbose] <submodule>
+	${FUNCNAME} [--quiet] <submodule>"
 	while test ${#} -ne 0; do
 		case "${1}" in
 			--verbose|-v) verbose=${1};;
 			--quiet|-q)   quiet=${1};;
 			--help|-h)    __usage 0 "${usage}";;
-			-*)           __usage 1 "Usage: ${usage}";;
+			-*)           __usage 1 "Usage:
+${usage}";;
 			*)            break;;
 		esac
 		shift
 	done
-	[ ! -z ${verbose} ] && [ ! -z ${quiet} ] && __usage 1 "--quiet and --verbose are incompatible options.\nUsage: ${usage}"
+	[ ! -z ${verbose} ] && [ ! -z ${quiet} ] && __usage 1 "--quiet and --verbose are incompatible options.
+Usage: ${usage}"
 	echo $1
 
 	if [ -z "${*}" ]; then
@@ -115,19 +117,21 @@ __submodule-reset-shallow() {
 	url=$(git config --file=.gitmodules --get submodule.${submodule}.url)
 	sparse_checkout=$(git config --file=.gitmodules --get submodule.${submodule}.sparse-checkout | sed --regexp-extended 's/(^\s+)|(\s$)//')
 	git_directory=.git/modules/${submodule}
-	rm -rf ${git_directory}
-	mv ${submodule}{,~} && debug Backup ${submodule} to ${submodule}~ || rm -rf ${submodule}
-	mkdir --parent $(dirname ${git_directory})
-	check ${verbose} ${quiet} -m "Shallow clone ${url} on branch ${branch} (depth ${depth})" git clone --no-checkout --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
-	[ -d ${submodule}~ ] && rm -rf ${submodule}~ && debug Delete backup ${submodule}~
-	if [ ! -z "${sparse_checkout}" ]; then
-		git config --file=${git_directory}/config core.sparsecheckout true
-		echo "${sparse_checkout}" > ${git_directory}/info/sparse-checkout
+	if ! git --git-dir=${git_directory} rev-list ${revision} &>/dev/null; then
+		rm -rf ${git_directory}
+		mv ${submodule}{,~} && debug Backup ${submodule} to ${submodule}~ || rm -rf ${submodule}
+		mkdir --parent $(dirname ${git_directory})
+		check ${verbose} ${quiet} -m "Shallow clone ${url} on branch ${branch} (depth ${depth})" git clone --no-checkout --depth ${depth} --branch ${branch} --separate-git-dir=${git_directory} ${url} ${submodule}
+		[ -d ${submodule}~ ] && rm -rf ${submodule}~ && debug Delete backup ${submodule}~
+		if [ ! -z "${sparse_checkout}" ]; then
+			git config --file=${git_directory}/config core.sparsecheckout true
+			echo "${sparse_checkout}" > ${git_directory}/info/sparse-checkout
+		fi
+		while ! git --git-dir=${git_directory} rev-list ${revision} &>/dev/null; do
+			((depth*=2))
+			check ${verbose} ${quiet} -m "Shallow fetch ${submodule} (depth ${depth})" git --git-dir=${git_directory} fetch --depth=${depth} origin
+		done
 	fi
-	while ! git --git-dir=${git_directory} rev-list ${revision} &>/dev/null; do
-		((depth*=2))
-		check ${verbose} ${quiet} -m "Shallow fetch ${submodule} (depth ${depth})" git --git-dir=${git_directory} fetch --depth=${depth} origin
-	done
 	check ${verbose} ${quiet} -m "Checkout ${submodule} (${revision})" git --git-dir=${git_directory} --work-tree=${submodule} checkout --force ${revision}
 }
 
@@ -200,8 +204,13 @@ if [ -L "${0}" ] && [ 1 -eq $(__api "${0}"|grep "^$(basename ${0})$"|wc -l) ]; t
 	$(basename ${0}) "${@}"
 elif [ ! -L "${0}" ]; then
 	cmd=${1}
-	if [ 1 -eq $(__api "${0}"|grep "^${cmd}$"|wc -l) ]; then
-		shift
-		${cmd} "${@}"
-	fi
+	case "$cmd" in
+		-h|--help) __api "${0}";;
+		*) if [ 1 -eq $(__api "${0}"|grep "^${cmd}$"|wc -l) ]; then
+			shift
+			${cmd} "${@}"
+		else
+			__usage 1 "Invalid command"
+		fi ;;
+	esac
 fi
