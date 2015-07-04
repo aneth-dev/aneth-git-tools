@@ -206,6 +206,7 @@ elif [ ! -L "${0}" ]; then
 	cmd=${1}
 	case "$cmd" in
 		-h|--help) __api "${0}";;
+		__api) __api "${0}";;
 		*) if [ 1 -eq $(__api "${0}"|grep "^${cmd}$"|wc -l) ]; then
 			shift
 			${cmd} "${@}"

@@ -5,7 +5,7 @@ lib := $(prefix)/lib
 include_cli := true
 
 SCRIPT = aeten-submodules.sh
-COMMANDS = $(shell bash -c '. $$(pwd)/$(SCRIPT) ; __api $(SCRIPT)')
+COMMANDS = $(shell $$(pwd)/$(SCRIPT) __api)
 LINKS = $(addprefix $(bin)/,$(COMMANDS))
 LIB_DIR = $(shell readlink -f "$$(test '$(lib)' = '$$(pwd)' && echo $(lib) || echo $(lib))")
 
