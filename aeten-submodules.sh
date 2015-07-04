@@ -143,9 +143,9 @@ git-submodule-reset-shallow() {
 	local revision
 	local verbose
 	local quiet
-	usage="\t${FUNCNAME} [--help]
-\t${FUNCNAME} [--init] [--branch <branch>] -- [<submodule1> [<submodule2> [...]]]
-\t${FUNCNAME} --branch <branch> --revision <revision> [--] <submodule>"
+	usage="	${FUNCNAME} [--help]
+	${FUNCNAME} [--init] [--branch <branch>] -- [<submodule1> [<submodule2> [...]]]
+	${FUNCNAME} --branch <branch> --revision <revision> [--] <submodule>"
 	let init=0
 	while test ${#} -ne 0; do
 		case "${1}" in
@@ -156,9 +156,10 @@ git-submodule-reset-shallow() {
 			--revision=*)  revision=${1/--revision=/};;
 			--verbose|-q)  verbose=${1};;
 			--quiet|-q)    quiet=${1};;
-			--help)        __usage 0 "${usage}";;
+			--help|-h)     __usage 0 "${usage}";;
 			--)            shift; break;;
-			-*)            __usage 1 "Usage:\n${usage}";;
+			-*)            __usage 1 "Usage:
+${usage}";;
 			*)             break;;
 		esac
 		shift
