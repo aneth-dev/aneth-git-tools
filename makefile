@@ -4,9 +4,12 @@ bin := $(prefix)/bin
 lib := $(prefix)/lib
 include_cli := true
 
-SCRIPT = aeten-submodules.sh
-COMMANDS = $(shell $$(pwd)/$(SCRIPT) __api)
-LINKS = $(addprefix $(bin)/,$(COMMANDS))
+SUBMODULES_SCRIPT = aeten-submodules.sh
+SUBMODULES_COMMANDS = $(shell $$(pwd)/$(SUBMODULES_SCRIPT) __api)
+SUBMODULES_LINKS = $(addprefix $(bin)/,$(SUBMODULES_COMMANDS))
+REMOTE_SCRIPT = aeten-remote.sh
+REMOTE_COMMANDS = $(shell $$(pwd)/$(REMOTE_SCRIPT) __api)
+REMOTE_LINKS = $(addprefix $(bin)/,$(REMOTE_COMMANDS))
 LIB_DIR = $(shell readlink -f "$$(test '$(lib)' = '$$(pwd)' && echo $(lib) || echo $(lib))")
 
 CUR_DIR = $(shell readlink -f "$(CURDIR)")
@@ -14,7 +17,8 @@ AETEN_CLI = \#@@AETEN-CLI-INCLUDE@@
 AETEN_CLI_SCRIPT = $(AETEN_CLI_DIR)/aeten-cli.sh
 
 check = $(AETEN_CLI_SCRIPT) check
-git_submodule = ". $(AETEN_CLI_SCRIPT) '&&' aeten_cli_import $(AETEN_CLI_SCRIPT) all '&&' . ./$(SCRIPT) '&&'"
+git_submodule = ". $(AETEN_CLI_SCRIPT) '&&' aeten_cli_import $(AETEN_CLI_SCRIPT) all '&&' . ./$(SUBMODULES_SCRIPT) '&&'"
+git_remote = ". $(AETEN_CLI_SCRIPT) '&&' aeten_cli_import $(AETEN_CLI_SCRIPT) all '&&' . ./$(REMOTE_SCRIPT) '&&'"
 
 ifeq ($(LIB_DIR),$(CUR_DIR))
 GITIGNORE = .gitignore
@@ -25,14 +29,14 @@ all:
 
 %.sh: %.sh.template
 
-.gitignore: $(SCRIPT)
+.gitignore: $(SUBMODULES_SCRIPT) $(REMOTE_SCRIPT)
 	@$(check) -m 'Update .gitignore' "echo .gitignore > .gitignore && sed --quiet --regexp-extended 's/^(git-[[:alnum:]_-]+)\s*\(\)\s*\{/\1/p' $< >> .gitignore"
 
-install: $(LINKS) $(GITIGNORE)
+install: $(SUBMODULES_LINKS) $(REMOTE_LINKS) $(GITIGNORE)
 
 uninstall:
-	@test "$(CUR_DIR)" = "$(LIB_DIR)" || $(check) -m 'Uninstall lib' rm -f $(LIB_DIR)/$(SCRIPT)
-	@$(check) -m 'Uninstall symlinks' rm -f $(LINKS)
+	@test "$(CUR_DIR)" = "$(LIB_DIR)" || $(check) -m 'Uninstall lib' rm -f $(addprefix $(LIB_DIR)/,$(SUBMODULES_SCRIPT) $(REMOTE_SCRIPT))
+	@$(check) -m 'Uninstall symlinks' rm -f $(SUBMODULES_LINKS) $(REMOTE_LINKS)
 
 clean:
 	@test -f .gitignore && $(check) -m 'Remove .gitignore' rm -f .gitignore || true
@@ -51,5 +55,8 @@ endif
 	@$(check) -m 'Set exec flag to $@' chmod a+rx $@
 endif
 
-$(LINKS): $(LIB_DIR)/$(SCRIPT)
+$(SUBMODULES_LINKS): $(LIB_DIR)/$(SUBMODULES_SCRIPT)
+	@$(check) -m 'Install symlink $@' ln -s $< $@
+
+$(REMOTE_LINKS): $(LIB_DIR)/$(REMOTE_SCRIPT)
 	@$(check) -m 'Install symlink $@' ln -s $< $@
