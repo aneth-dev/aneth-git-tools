@@ -61,13 +61,13 @@ Usage: ${usage}"
 
 	let error=0
 	for submodule in ${submodules}; do
-		check -m "Check submodule ${1}" test "$(git-submodule-checked-out ${1})" = "$(git-submodule-show-rev ${1})" || let error+=1
+		check -m "Check submodule ${1}" test "$(git-submodule-rev-parse ${1})" = "$(git-submodule-show-rev ${1})" || let error+=1
 	done
 	[ ${error} -eq 0 ] || fatal One or more submodule out of sync.
 }
 
 # Parameters: submodule
-git-submodule-checked-out() {
+git-submodule-rev-parse() {
 	[ 1 -eq ${#} ] || { echo Usage: ${FUNCNAME} submodule >&2 ; exit 1; }
 	git --git-dir=.git/modules/${1} rev-parse HEAD
 }
