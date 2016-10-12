@@ -203,7 +203,7 @@ ${usage}";;
 
 if [ -L "${0}" ] && [ 1 -eq $(__api "${0}"|grep "^$(basename ${0})$"|wc -l) ]; then
 	$(basename ${0}) "${@}"
-elif [ ! -L "${0}" ]; then
+elif [ ! -L "${0}" ] && [ $(basename "${0}" .sh) = aeten-submodules ] ; then
 	cmd=${1}
 	case "$cmd" in
 		-h|--help) __api "${0}";;

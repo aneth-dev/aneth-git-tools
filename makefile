@@ -4,6 +4,7 @@ bin := $(prefix)/bin
 lib := $(prefix)/lib
 include_cli := true
 
+SUBMODULES = aeten-cli
 SUBMODULES_SCRIPT = aeten-submodules.sh
 SUBMODULES_COMMANDS = $(shell $$(pwd)/$(SUBMODULES_SCRIPT) __api)
 SUBMODULES_LINKS = $(addprefix $(bin)/,$(SUBMODULES_COMMANDS))
@@ -17,15 +18,15 @@ AETEN_CLI = \#@@AETEN-CLI-INCLUDE@@
 AETEN_CLI_SCRIPT = $(AETEN_CLI_DIR)/aeten-cli.sh
 
 check = $(AETEN_CLI_SCRIPT) check
-git_submodule = ". $(AETEN_CLI_SCRIPT) '&&' aeten_cli_import $(AETEN_CLI_SCRIPT) all '&&' . ./$(SUBMODULES_SCRIPT) '&&'"
+git_submodule = "bash -c '. $(AETEN_CLI_SCRIPT) && aeten_cli_import $(AETEN_CLI_SCRIPT) all && . ./$(SUBMODULES_SCRIPT) && git-submodule-${1}'"
 git_remote = ". $(AETEN_CLI_SCRIPT) '&&' aeten_cli_import $(AETEN_CLI_SCRIPT) all '&&' . ./$(REMOTE_SCRIPT) '&&'"
 
 ifeq ($(LIB_DIR),$(CUR_DIR))
 GITIGNORE = .gitignore
 endif
 
-.PHONY: all clean install uninstall
-all:
+.PHONY: all clean install uninstall ${SUBMODULES}
+all: ${SUBMODULES}
 
 %.sh: %.sh.template
 
@@ -38,6 +39,12 @@ uninstall:
 	@test "$(CUR_DIR)" = "$(LIB_DIR)" || $(check) -m 'Uninstall lib' rm -f $(addprefix $(LIB_DIR)/,$(SUBMODULES_SCRIPT) $(REMOTE_SCRIPT))
 	@$(check) -m 'Uninstall symlinks' rm -f $(SUBMODULES_LINKS) $(REMOTE_LINKS)
 
+${SUBMODULES}: ${AETEN_CLI_SCRIPT}
+	@$(check) -m 'Reset submodule $@' $(call git_submodule,reset-shallow $@)
+
+${AETEN_CLI_SCRIPT}:
+	git submodule update --init aeten-cli
+
 clean:
 	@test -f .gitignore && $(check) -m 'Remove .gitignore' rm -f .gitignore || true
 
@@ -46,7 +53,7 @@ $(LIB_DIR)/%: %
 ifeq (true,$(include_cli))
 	@$(check) -m 'Check submodule checkout' test -f $(AETEN_CLI_SCRIPT)
 ifeq (./aeten-cli,$(AETEN_CLI_DIR))
-	@-$(check) -l warn -m "Check submodule checkout revision" $(git_submodule) git-submodule-check aeten-cli
+	@$(check) -l warn -m "Check submodule checkout revision" $(call git_submodule,check aeten-cli); true
 endif
 	@$(check) -m 'Install lib $@ with aeten-cli inclusion' "sed -e '/$(AETEN_CLI)/r $(AETEN_CLI_SCRIPT)' -e '/$(AETEN_CLI)/a \\\naeten_cli_import \$${0} all' -e '/$(AETEN_CLI)/d' $< > $@"
 else
