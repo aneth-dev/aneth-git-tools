@@ -1,5 +1,5 @@
-[submodule "aeten-cli"]
-	path = aeten-cli
-	url = git@github.com:aeten/aeten-cli.git
+[submodule "aneth-cli"]
+	path = aneth-cli
+	url = git@gitlab.com:aneth.dev/aneth-cli.git
 	branch = master
-	sparse-checkout = aeten-cli.sh
+	sparse-checkout = aneth-cli.sh

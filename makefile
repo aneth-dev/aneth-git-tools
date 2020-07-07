@@ -1,25 +1,25 @@
-AETEN_CLI_DIR := ./aeten-cli
+AETEN_CLI_DIR := ./aneth-cli
 prefix := /usr/local
 bin := $(prefix)/bin
 lib := $(prefix)/lib
 include_cli := true
 
-SUBMODULES = aeten-cli
-SUBMODULES_SCRIPT = aeten-submodules.sh
+SUBMODULES = aneth-cli
+SUBMODULES_SCRIPT = aneth-submodules.sh
 SUBMODULES_COMMANDS = $(shell $$(pwd)/$(SUBMODULES_SCRIPT) __api)
 SUBMODULES_LINKS = $(addprefix $(bin)/,$(SUBMODULES_COMMANDS))
-REMOTE_SCRIPT = aeten-remote.sh
+REMOTE_SCRIPT = aneth-remote.sh
 REMOTE_COMMANDS = $(shell $$(pwd)/$(REMOTE_SCRIPT) __api)
 REMOTE_LINKS = $(addprefix $(bin)/,$(REMOTE_COMMANDS))
 LIB_DIR = $(shell readlink -f "$$(test '$(lib)' = '$$(pwd)' && echo $(lib) || echo $(lib))")
 
 CUR_DIR = $(shell readlink -f "$(CURDIR)")
 AETEN_CLI = \#@@AETEN-CLI-INCLUDE@@
-AETEN_CLI_SCRIPT = $(AETEN_CLI_DIR)/aeten-cli.sh
+AETEN_CLI_SCRIPT = $(AETEN_CLI_DIR)/aneth-cli.sh
 
 check = $(AETEN_CLI_SCRIPT) check
-git_submodule = "bash -c '. $(AETEN_CLI_SCRIPT) && aeten_cli_import $(AETEN_CLI_SCRIPT) all && . ./$(SUBMODULES_SCRIPT) && git-submodule-${1}'"
-git_remote = ". $(AETEN_CLI_SCRIPT) '&&' aeten_cli_import $(AETEN_CLI_SCRIPT) all '&&' . ./$(REMOTE_SCRIPT) '&&'"
+git_submodule = "bash -c '. $(AETEN_CLI_SCRIPT) && aneth_cli_import $(AETEN_CLI_SCRIPT) all && . ./$(SUBMODULES_SCRIPT) && git-submodule-${1}'"
+git_remote = ". $(AETEN_CLI_SCRIPT) '&&' aneth_cli_import $(AETEN_CLI_SCRIPT) all '&&' . ./$(REMOTE_SCRIPT) '&&'"
 
 ifeq ($(LIB_DIR),$(CUR_DIR))
 GITIGNORE = .gitignore
@@ -43,7 +43,7 @@ ${SUBMODULES}: ${AETEN_CLI_SCRIPT}
 	@$(check) -m 'Reset submodule $@' $(call git_submodule,reset-shallow $@)
 
 ${AETEN_CLI_SCRIPT}:
-	git submodule update --init aeten-cli
+	git submodule update --init aneth-cli
 
 clean:
 	@test -f .gitignore && $(check) -m 'Remove .gitignore' rm -f .gitignore || true
@@ -52,10 +52,10 @@ ifneq ($(LIB_DIR),$(CUR_DIR)) # Prevent circular dependency
 $(LIB_DIR)/%: %
 ifeq (true,$(include_cli))
 	@$(check) -m 'Check submodule checkout' test -f $(AETEN_CLI_SCRIPT)
-ifeq (./aeten-cli,$(AETEN_CLI_DIR))
-	@$(check) -l warn -m "Check submodule checkout revision" $(call git_submodule,check aeten-cli); true
+ifeq (./aneth-cli,$(AETEN_CLI_DIR))
+	@$(check) -l warn -m "Check submodule checkout revision" $(call git_submodule,check aneth-cli); true
 endif
-	@$(check) -m 'Install lib $@ with aeten-cli inclusion' "sed -e '/$(AETEN_CLI)/r $(AETEN_CLI_SCRIPT)' -e '/$(AETEN_CLI)/a \\\naeten_cli_import \$${0} all' -e '/$(AETEN_CLI)/d' $< > $@"
+	@$(check) -m 'Install lib $@ with aneth-cli inclusion' "sed -e '/$(AETEN_CLI)/r $(AETEN_CLI_SCRIPT)' -e '/$(AETEN_CLI)/a \\\naneth_cli_import \$${0} all' -e '/$(AETEN_CLI)/d' $< > $@"
 else
 	@$(check) -m 'Install lib $@' cp $< $@
 endif
